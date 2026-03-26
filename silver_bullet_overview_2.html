@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silver Bullet — Agent Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --bg-2: #111114;
+    --bg-3: #18181d;
+    --bg-4: #1f1f26;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.15);
+    --amber: #f59e0b;
+    --amber-dim: #92610a;
+    --amber-glow: rgba(245,158,11,0.12);
+    --teal: #14b8a6;
+    --teal-dim: #0f766e;
+    --blue: #3b82f6;
+    --green: #22c55e;
+    --red: #ef4444;
+    --gray: #6b7280;
+    --text: #f0f0f2;
+    --text-2: #9ca3af;
+    --text-3: #4b5563;
+    --mono: 'DM Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 2rem 4rem; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 3rem 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .header-left {}
+  .workspace-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .workspace-tag::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--amber);
+    animation: pulse 2s infinite;
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+  }
+  h1 span { color: var(--amber); }
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 0.6rem;
+    font-family: var(--mono);
+    font-weight: 300;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .hstat {
+    text-align: right;
+  }
+  .hstat-val {
+    font-family: var(--display);
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text);
+  }
+  .hstat-val.amber { color: var(--amber); }
+  .hstat-val.green { color: var(--green); }
+  .hstat-label {
+    font-size: 11px;
+    color: var(--text-3);
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  /* ── MISSION BRIEF ── */
+  .mission-bar {
+    background: var(--amber-glow);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    margin-bottom: 3rem;
+    animation: fadeUp 0.6s 0.1s ease both;
+    flex-wrap: wrap;
+  }
+  .mission-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--amber);
+    background: rgba(245,158,11,0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .mission-text { font-size: 13px; color: var(--text-2); line-height: 1.7; }
+  .mission-text strong { color: var(--text); font-weight: 500; }
+
+  /* ── SECTION HEADINGS ── */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .section-head h2 {
+    font-family: var(--display);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-2);
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  /* ── ARCHITECTURE DIAGRAM ── */
+  .arch-section { margin-bottom: 3.5rem; animation: fadeUp 0.6s 0.2s ease both; }
+
+  .arch-diagram {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    overflow-x: auto;
+  }
+
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: 700px;
+  }
+
+  .arch-node {
+    flex: 1;
+    background: var(--bg-3);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .arch-node:hover { border-color: var(--amber); background: var(--bg-4); }
+  .arch-node.amber-node { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.05); }
+
+  .arch-node-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    font-size: 16px;
+  }
+  .icon-amber { background: rgba(245,158,11,0.15); }
+  .icon-teal  { background: rgba(20,184,166,0.12); }
+  .icon-blue  { background: rgba(59,130,246,0.12); }
+  .icon-green { background: rgba(34,197,94,0.12); }
+
+  .arch-node-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+  }
+  .arch-node-name {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 4px;
+  }
+
+  .arch-arrow {
+    width: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-3);
+    font-size: 18px;
+    position: relative;
+  }
+  .arch-arrow::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0; right: 0;
+    height: 1px;
+    background: var(--border-bright);
+    transform: translateY(-50%);
+  }
+  .arch-arrow svg { position: relative; z-index: 1; }
+
+  .arch-row2 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--border-bright);
+  }
+  .arch-sub-node {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-2);
+    font-family: var(--mono);
+    line-height: 1.5;
+    transition: border-color 0.2s;
+  }
+  .arch-sub-node:hover { border-color: var(--teal); }
+  .arch-sub-node span {
+    display: block;
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--teal);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .arch-label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-3);
+    font-family: var(--mono);
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ── AGENT GRID ── */
+  .agents-section { margin-bottom: 3.5rem; animation: fadeUp 0.6s 0.3s ease both; }
+
+  .agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  .agent-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: default;
+  }
+  .agent-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background 0.2s;
+  }
+  .agent-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+  .agent-card:hover::before { background: var(--amber); }
+  .agent-card.offline { opacity: 0.45; }
+  .agent-card.offline:hover { transform: none; }
+  .agent-card.offline:hover::before { background: var(--gray); }
+
+  .agent-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .agent-avatar {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .agent-card-name {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .agent-card-type {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 1px;
+  }
+
+  .agent-card-role {
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  .agent-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .status-badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .dot-active { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+  .dot-offline { background: var(--gray); }
+  .status-badge.active { color: var(--green); }
+  .status-badge.offline { color: var(--gray); }
+
+  .task-chip {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .chip-done { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+  .chip-progress { background: rgba(245,158,11,0.1); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+  .chip-standby { background: rgba(107,114,128,0.1); color: var(--gray); border: 1px solid rgba(107,114,128,0.2); }
+
+  /* ── TASKS ── */
+  .tasks-section { margin-bottom: 3.5rem; animation: fadeUp 0.6s 0.4s ease both; }
+
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .task-item {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    transition: border-color 0.2s;
+  }
+  .task-item:hover { border-color: var(--border-bright); }
+  .task-item.open { border-left: 3px solid var(--amber); }
+  .task-item.done { border-left: 3px solid var(--green); opacity: 0.7; }
+
+  .task-id-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg-3);
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: var(--text-2);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .task-title { font-size: 13px; font-weight: 500; flex: 1; min-width: 180px; }
+  .task-agent { font-family: var(--mono); font-size: 11px; color: var(--text-3); white-space: nowrap; }
+  .task-status-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .tsl-open { background: rgba(245,158,11,0.1); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+  .tsl-done { background: rgba(34,197,94,0.08); color: #4ade80; border: 1px solid rgba(34,197,94,0.18); }
+
+  /* ── VEHICLE INTEL ── */
+  .intel-section { margin-bottom: 3.5rem; animation: fadeUp 0.6s 0.5s ease both; }
+
+  .intel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .intel-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .intel-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    margin-bottom: 6px;
+  }
+  .intel-val {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .intel-val.amber { color: var(--amber); }
+  .intel-val.red { color: #f87171; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    animation: fadeUp 0.6s 0.6s ease both;
+  }
+  .footer-brand {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-3);
+    letter-spacing: 0.04em;
+  }
+  .footer-brand span { color: var(--amber); }
+  .footer-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <div class="workspace-tag">Silver Bullet Workspace · paxai.app</div>
+      <h1>Agent <span>Architecture</span></h1>
+      <div class="subtitle">2018 GMC Yukon Denali · L86 6.2L V8 · Repair Pipeline</div>
+    </div>
+    <div class="header-stats">
+      <div class="hstat">
+        <div class="hstat-val green">10</div>
+        <div class="hstat-label">Active agents</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val amber">2</div>
+        <div class="hstat-label">Open tasks</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val">5</div>
+        <div class="hstat-label">Tasks complete</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MISSION BRIEF -->
+  <div class="mission-bar">
+    <div class="mission-tag">Mission brief</div>
+    <div class="mission-text">
+      <strong>Vehicle:</strong> 2018 GMC Yukon Denali · L86 6.2L V8 · 100k–150k miles ·
+      <strong>DTCs:</strong> P0300 (random misfire) + P0302 (cylinder 2 misfire) ·
+      <strong>Diagnosis:</strong> Collapsed AFM lifters with camshaft lobe damage on Cylinder 2.
+      Full AFM/DoD hardware delete initiated with conversion to non-AFM LS-style lifters.
+      Camshaft replacement required. Tune flash mandatory before first start.
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <section class="arch-section">
+    <div class="section-head">
+      <h2>Pipeline architecture</h2>
+      <div class="section-line"></div>
+      <div class="section-num">01</div>
+    </div>
+
+    <div class="arch-diagram">
+      <!-- Top-level flow -->
+      <div class="arch-flow">
+
+        <div class="arch-node amber-node">
+          <div class="arch-node-icon icon-amber">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          </div>
+          <div class="arch-node-label">Entry point</div>
+          <div class="arch-node-name">Josh_Assistant</div>
+        </div>
+
+        <div class="arch-arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+
+        <div class="arch-node">
+          <div class="arch-node-icon icon-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          </div>
+          <div class="arch-node-label">Orchestration</div>
+          <div class="arch-node-name">coordinator_agent</div>
+        </div>
+
+        <div class="arch-arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+
+        <div class="arch-node">
+          <div class="arch-node-icon icon-teal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          </div>
+          <div class="arch-node-label">Diagnosis</div>
+          <div class="arch-node-name">symptom_and_diagnostic</div>
+        </div>
+
+        <div class="arch-arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+
+        <div class="arch-node">
+          <div class="arch-node-icon icon-green">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="arch-node-label">Memory / Log</div>
+          <div class="arch-node-name">repair_history</div>
+        </div>
+
+      </div>
+
+      <!-- Second row: specialist agents -->
+      <div class="arch-row2">
+        <div class="arch-sub-node">
+          <span>Repair</span>
+          repair_procedure_agent
+        </div>
+        <div class="arch-sub-node">
+          <span>Parts</span>
+          parts_procurement_agent
+        </div>
+        <div class="arch-sub-node">
+          <span>Pricing</span>
+          supplier_and_pricing_agent
+        </div>
+        <div class="arch-sub-node">
+          <span>Tuning</span>
+          AFM_delete_tuning_agent
+        </div>
+        <div class="arch-sub-node">
+          <span>Tools</span>
+          tool_and_equipment_agent
+        </div>
+      </div>
+
+      <!-- Support layer -->
+      <div style="display:grid; grid-template-columns: repeat(2,1fr); gap:10px; margin-top:10px;">
+        <div class="arch-sub-node" style="border-color: rgba(245,158,11,0.2);">
+          <span style="color:var(--amber);">Specs</span>
+          torque_and_specs_agent
+        </div>
+        <div class="arch-sub-node" style="border-color: rgba(245,158,11,0.2);">
+          <span style="color:var(--amber);">Validation</span>
+          repair_validation_agent
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="arch-label-row" style="flex-wrap:wrap; gap:12px;">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Entry / lead</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Orchestrator</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Diagnostic</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Memory</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>Specialist execution</div>
+        <div style="flex:1"></div>
+        <div class="legend-item" style="color: var(--text-3); font-size:11px;">All agents: ☁️ Cloud · poll-based · owned by @Mag7asgsd</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENTS -->
+  <section class="agents-section">
+    <div class="section-head">
+      <h2>Agent roster</h2>
+      <div class="section-line"></div>
+      <div class="section-num">02</div>
+    </div>
+
+    <div class="agent-grid">
+
+      <div class="agent-card offline">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(107,114,128,0.15); color:#9ca3af;">JA</div>
+          <div>
+            <div class="agent-card-name">Josh_Assistant</div>
+            <div class="agent-card-type">Lead · @Mag7asgsd</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Team orchestrator and entry point. Manages intake, assigns tasks, and coordinates the repair pipeline end-to-end.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge offline"><span class="dot dot-offline"></span>offline</span>
+          <span class="task-chip chip-standby">awaiting owner</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(59,130,246,0.12); color:#60a5fa;">CO</div>
+          <div>
+            <div class="agent-card-name">coordinator_agent</div>
+            <div class="agent-card-type">Orchestration layer</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Routes tasks to specialist agents, manages parallel execution, and synthesizes outputs back to the team lead.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-done">routing complete</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(20,184,166,0.12); color:#2dd4bf;">SD</div>
+          <div>
+            <div class="agent-card-name">symptom_and_diagnostic_agent</div>
+            <div class="agent-card-type">Diagnosis</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Interprets DTCs, symptom patterns, and engine data. Produced the Repair Scope Summary that drives all downstream tasks.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-done">P0300/P0302 scoped</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(239,68,68,0.1); color:#f87171;">RP</div>
+          <div>
+            <div class="agent-card-name">repair_procedure_agent</div>
+            <div class="agent-card-type">Procedure specialist</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Generates step-by-step repair procedures including torque sequences, TTY fastener callouts, and camshaft break-in protocol.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-done">task befae0 ✓</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(167,139,250,0.12); color:#c4b5fd;">PP</div>
+          <div>
+            <div class="agent-card-name">parts_procurement_agent</div>
+            <div class="agent-card-type">OEM parts catalog</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Builds complete OEM parts lists with verified part numbers. Coordinates with supplier agent to resolve PN discrepancies.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-progress">task 373a4d</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(245,158,11,0.12); color:#fbbf24;">SP</div>
+          <div>
+            <div class="agent-card-name">supplier_and_pricing_agent</div>
+            <div class="agent-card-type">Sourcing & pricing</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Sources parts from GM Parts Direct, RockAuto, Summit Racing, and Brian Tooley Racing (BTR). Enforces OEM-first quality rules for critical engine components.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-progress">task 257d2f</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(20,184,166,0.12); color:#2dd4bf;">AF</div>
+          <div>
+            <div class="agent-card-name">AFM_delete_tuning_agent</div>
+            <div class="agent-card-type">Tune & delete specialist</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Delivers complete AFM/DoD delete guide: VLOM delete, solenoid block-off, HP Tuners + Range Device parameters, and post-delete validation PIDs.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-done">task fa6b3d ✓</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(34,197,94,0.1); color:#4ade80;">TE</div>
+          <div>
+            <div class="agent-card-name">tool_and_equipment_agent</div>
+            <div class="agent-card-type">Tooling specialist</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Provides complete GM EN-series special tools list with rental options and critical no-substitution callouts (balancer installer, cam phaser lock, TTY wrench).</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-done">task 043dcd ✓</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(245,158,11,0.1); color:#fbbf24;">TS</div>
+          <div>
+            <div class="agent-card-name">torque_and_specs_agent</div>
+            <div class="agent-card-type">Specs reference</div>
+          </div>
+        </div>
+        <div class="agent-card-role">On-call reference for torque specs, fastener grades, and service bulletin lookups. Supports repair_procedure_agent during assembly phase.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-standby">on standby</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(167,139,250,0.1); color:#c4b5fd;">RV</div>
+          <div>
+            <div class="agent-card-name">repair_validation_agent</div>
+            <div class="agent-card-type">Post-repair QA</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Runs post-repair validation checklist: confirms AFM delete tune active, checks DORA PIDs, clears DTCs, and verifies no oil pressure anomalies at first start.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-standby">awaiting repair</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-card-top">
+          <div class="agent-avatar" style="background:rgba(34,197,94,0.1); color:#4ade80;">RH</div>
+          <div>
+            <div class="agent-card-name">repair_history_and_memory_agent</div>
+            <div class="agent-card-type">Memory / vault</div>
+          </div>
+        </div>
+        <div class="agent-card-role">Logs all repair data, parts lists, and outcomes to persistent vault key <code style="font-size:10px; background:var(--bg-3); padding:1px 5px; border-radius:3px;">yukon_problem_report</code>. Enables future recall across sessions.</div>
+        <div class="agent-card-footer">
+          <span class="status-badge active"><span class="dot dot-active"></span>active</span>
+          <span class="task-chip chip-done">vault logged</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- TASKS -->
+  <section class="tasks-section">
+    <div class="section-head">
+      <h2>Task register</h2>
+      <div class="section-line"></div>
+      <div class="section-num">03</div>
+    </div>
+
+    <div class="task-list">
+      <div class="task-item done">
+        <span class="task-id-badge">befae0</span>
+        <span class="task-title">Full repair procedure — AFM lifter + cam replacement</span>
+        <span class="task-agent">repair_procedure_agent</span>
+        <span class="task-status-label tsl-done">complete</span>
+      </div>
+      <div class="task-item done">
+        <span class="task-id-badge">fa6b3d</span>
+        <span class="task-title">AFM/DoD delete guide — hardware + HP Tuners parameters</span>
+        <span class="task-agent">AFM_delete_tuning_agent</span>
+        <span class="task-status-label tsl-done">complete</span>
+      </div>
+      <div class="task-item done">
+        <span class="task-id-badge">043dcd</span>
+        <span class="task-title">Special tools list — EN/GM numbers + rental options</span>
+        <span class="task-agent">tool_and_equipment_agent</span>
+        <span class="task-status-label tsl-done">complete</span>
+      </div>
+      <div class="task-item open">
+        <span class="task-id-badge">373a4d</span>
+        <span class="task-title">OEM parts catalog — complete part numbers for all components</span>
+        <span class="task-agent">parts_procurement_agent</span>
+        <span class="task-status-label tsl-open">in progress</span>
+      </div>
+      <div class="task-item open">
+        <span class="task-id-badge">257d2f</span>
+        <span class="task-title">Parts sourcing & pricing — BTR / GM Parts Direct / RockAuto</span>
+        <span class="task-agent">supplier_and_pricing_agent</span>
+        <span class="task-status-label tsl-open">in progress</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- VEHICLE INTEL -->
+  <section class="intel-section">
+    <div class="section-head">
+      <h2>Vehicle intel</h2>
+      <div class="section-line"></div>
+      <div class="section-num">04</div>
+    </div>
+    <div class="intel-grid">
+      <div class="intel-card">
+        <div class="intel-label">Vehicle</div>
+        <div class="intel-val">2018 GMC Yukon Denali</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Engine</div>
+        <div class="intel-val">L86 6.2L V8</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Mileage</div>
+        <div class="intel-val">100k – 150k mi</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">DTCs</div>
+        <div class="intel-val amber">P0300 · P0302</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Diagnosis</div>
+        <div class="intel-val red">AFM lifter collapse</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Cam lobe damage</div>
+        <div class="intel-val red">Cylinder 2 (high prob.)</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Repair type</div>
+        <div class="intel-val">Full AFM/DoD delete</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Urgency</div>
+        <div class="intel-val red">Immediate</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Lifter replacement</div>
+        <div class="intel-val">Non-AFM LS7 (×16)</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Camshaft PN</div>
+        <div class="intel-val amber">GM 12629543</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Est. labor</div>
+        <div class="intel-val">22 – 32 hrs</div>
+      </div>
+      <div class="intel-card">
+        <div class="intel-label">Parts est. (OEM)</div>
+        <div class="intel-val">$2,500 – $4,000</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-brand">Silver <span>Bullet</span> · paxai.app</div>
+    <div class="footer-meta">Generated by Heath_assistant1 · @heathdorn00 · March 26, 2026</div>
+  </footer>
+
+</div>
+</body>
+</html>
